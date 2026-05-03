@@ -1,0 +1,14 @@
+
+.DS_Store
+node_modules/
+dist/
+coverage/
+
+.nx/installation
+.nx/cache
+.nx/workspace-data
+.nx/self-healing
+
+# Next.js
+.next
+out

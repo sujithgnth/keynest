@@ -64,6 +64,16 @@ The backend should never receive plaintext credentials, plaintext notes, the mas
 - Docker Compose
 - GitHub Actions
 
+## Workspace Scripts
+
+- `npm run dev:web` - start the Next.js app
+- `npm run dev:api` - start the NestJS API
+- `npm run build` - build all buildable projects
+- `npm run lint` - lint all projects
+- `npm run format` - format the workspace with Prettier
+- `npm run format:check` - check Prettier formatting
+- `npm run graph` - inspect the Nx project graph
+
 ## Important Disclaimer
 
 This project is an educational portfolio project. It has not undergone a professional security audit and should not be used to store real passwords.

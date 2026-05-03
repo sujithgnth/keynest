@@ -26,3 +26,4 @@ PostgreSQL
         |
         v
 Redis
+```
