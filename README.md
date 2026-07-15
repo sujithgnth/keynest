@@ -14,7 +14,8 @@ The backend should never receive plaintext credentials, plaintext notes, the mas
 - Authentication and session management
 - Refresh token rotation
 - Secure vault unlock flow
-- PostgreSQL data modeling
+- MongoDB data modeling
+- SQL comparison later
 - Audit logging
 - Rate limiting
 - Frontend state separation
@@ -40,9 +41,8 @@ The backend should never receive plaintext credentials, plaintext notes, the mas
 
 - NestJS
 - TypeScript
-- PostgreSQL
-- Prisma
-- Redis
+- MongoDB
+- SQL / PostgreSQL comparison later
 - Argon2
 - JWT access tokens
 - Refresh token rotation
@@ -73,6 +73,52 @@ The backend should never receive plaintext credentials, plaintext notes, the mas
 - `npm run format` - format the workspace with Prettier
 - `npm run format:check` - check Prettier formatting
 - `npm run graph` - inspect the Nx project graph
+
+## Current Progress
+
+As of June 16, 2026:
+
+- Nx monorepo scaffold is in place.
+- `apps/web` contains the initial Next.js app shell.
+- `apps/api` contains the initial NestJS app shell.
+- Shared libraries are scaffolded under `libs/types`, `libs/validation`, `libs/crypto`, and `libs/ui`.
+- TypeScript strict mode, ESLint, and Prettier are configured.
+- Backend module skeletons are wired for auth, users, vault, credentials, sessions, and audit logs.
+- Controllers, services, and DTO placeholder files exist for the backend modules.
+- Project direction is updated for a 3-month interview-focused phase and long-term architecture growth through 2028.
+- Auth, database model, encryption, session rotation, and audit-log persistence are not implemented yet.
+
+## Learning Approach
+
+This project is being built as a mentorship-driven interview portfolio project, not just a code-generation exercise. For the next 3 months, the priority is Senior Frontend Engineer / Fullstack TypeScript interview readiness. The longer-term path is hands-on software architecture growth through 2028.
+
+- Working rules: [docs/mentorship-guidelines.md](docs/mentorship-guidelines.md)
+- Combined progress source: [docs/combined-progress.md](docs/combined-progress.md)
+- Learning progress source: [docs/learning-progress.md](docs/learning-progress.md)
+- Two-layer roadmap: [docs/project-direction.md](docs/project-direction.md)
+- 3-month timeline: [docs/3-month-timeline.md](docs/3-month-timeline.md)
+- Learning notes: [docs/learning-notes](docs/learning-notes)
+
+## Next TODO Steps
+
+Before writing the database model, clarify the domain and security boundaries:
+
+1. Define the core domain entities: `User`, `Vault`, `CredentialItem`, `Session`, and `AuditLog`.
+2. Decide which fields are encrypted client-side and which fields remain plaintext metadata.
+3. Document the encrypted/plaintext tradeoff for search, category filtering, sorting, pagination, and audit logs.
+4. Use MongoDB initially, then document the SQL/PostgreSQL comparison later as an architecture learning exercise.
+5. Draft the first MongoDB collection model only after the entity model and metadata policy are clear.
+6. Review the database model for document boundaries, references, indexes, naming, session modeling, audit-log design, and security concerns.
+7. Write an ADR for the database choice and another ADR for the encrypted metadata boundary.
+8. Add Docker Compose for the selected database after the schema direction is stable.
+9. Add focused tests for the first backend persistence flow once database persistence is introduced.
+
+Current learning question:
+
+```txt
+How should User, Vault, CredentialItem, Session, and AuditLog be modeled,
+and which fields must be encrypted versus queryable as plaintext metadata?
+```
 
 ## Important Disclaimer
 
