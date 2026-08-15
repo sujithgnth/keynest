@@ -2,10 +2,12 @@
   "name": "@keynest/crypto",
   "version": "0.0.1",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
+    "@keynest/types": "0.0.1",
+    "vitest": "^4.1.9",
     "tslib": "^2.3.0"
   }
 }

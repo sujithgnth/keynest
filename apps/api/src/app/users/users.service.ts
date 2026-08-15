@@ -1,8 +1,7 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
+import { PG_POOL } from '../database/database.constants';
 import { CreateUserDto } from './dto/create-user.dto';
-import { User, UserDocument } from './schemas/user.schema';
 
 export interface PublicUser {
   id: string;
@@ -10,34 +9,38 @@ export interface PublicUser {
   email: string;
 }
 
-interface MongoDuplicateKeyError {
-  code?: number;
+export interface UserWithPasswordHash extends PublicUser {
+  passwordHash: string;
+}
+
+interface PostgresError {
+  code?: string;
 }
 
 @Injectable()
 export class UsersService {
-  constructor(
-    @InjectModel(User.name)
-    private readonly userModel: Model<UserDocument>,
-  ) {}
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   async createUser(createUserDto: CreateUserDto): Promise<PublicUser> {
     const emailNormalized = this.normalizeEmail(createUserDto.email);
 
     try {
-      const user = await this.userModel.create({
-        name: createUserDto.name.trim(),
-        email: emailNormalized,
-        emailNormalized,
-        passwordHash: createUserDto.passwordHash,
-      });
-
-      return this.toPublicUser(user);
+      const result = await this.pool.query<PublicUser>(
+        `INSERT INTO users (name, email, email_normalized, password_hash)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, name, email`,
+        [
+          createUserDto.name.trim(),
+          emailNormalized,
+          emailNormalized,
+          createUserDto.passwordHash,
+        ],
+      );
+      return this.toPublicUser(result.rows[0]);
     } catch (error) {
       if (this.isDuplicateKeyError(error)) {
         throw new ConflictException('Email is already registered');
       }
-
       throw error;
     }
   }
@@ -46,26 +49,50 @@ export class UsersService {
     return email.trim().toLowerCase();
   }
 
-  toPublicUser(user: Pick<UserDocument, '_id' | 'name' | 'email'>): PublicUser {
-    return {
-      id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-    };
+  toPublicUser(user: PublicUser): PublicUser {
+    return { id: user.id, name: user.name, email: user.email };
+  }
+
+  async findByEmailWithPasswordHash(
+    email: string,
+  ): Promise<UserWithPasswordHash | null> {
+    const result = await this.pool.query<{
+      id: string;
+      name: string;
+      email: string;
+      password_hash: string;
+    }>(
+      `SELECT id, name, email, password_hash
+       FROM users
+       WHERE email_normalized = $1 AND status = 'active'`,
+      [this.normalizeEmail(email)],
+    );
+    const user = result.rows[0];
+    return user
+      ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          passwordHash: user.password_hash,
+        }
+      : null;
+  }
+
+  async findPublicById(id: string): Promise<PublicUser | null> {
+    const result = await this.pool.query<PublicUser>(
+      `SELECT id, name, email
+       FROM users
+       WHERE id = $1 AND status = 'active'`,
+      [id],
+    );
+    return result.rows[0] ?? null;
   }
 
   private isDuplicateKeyError(error: unknown): boolean {
     return (
       typeof error === 'object' &&
       error !== null &&
-      (error as MongoDuplicateKeyError).code === 11000
+      (error as PostgresError).code === '23505'
     );
-  }
-
-  findByEmailWithPasswordHash(email: string): Promise<UserDocument | null> {
-    return this.userModel
-      .findOne({ emailNormalized: this.normalizeEmail(email) })
-      .select('+passwordHash')
-      .exec();
   }
 }

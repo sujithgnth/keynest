@@ -1,39 +1,30 @@
 import { ConflictException } from '@nestjs/common';
-import { Model } from 'mongoose';
+import { Pool } from 'pg';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UserDocument } from './schemas/user.schema';
 import { UsersService } from './users.service';
 
-describe('UsersService.createUser', () => {
-  let userModel: Pick<Model<UserDocument>, 'create' | 'findOne'>;
+describe('UsersService', () => {
+  let query: ReturnType<typeof vi.fn>;
   let usersService: UsersService;
 
   beforeEach(() => {
-    userModel = {
-      create: vi.fn().mockResolvedValue({
-        _id: { toString: () => 'user-1' },
-        name: 'Sujeith',
-        email: 'sujeith@example.com',
-      }),
-      findOne: vi.fn(),
-    } as unknown as Pick<Model<UserDocument>, 'create' | 'findOne'>;
-
-    usersService = new UsersService(userModel as Model<UserDocument>);
+    query = vi.fn().mockResolvedValue({
+      rows: [{ id: 'user-1', name: 'Sujeith', email: 'sujeith@example.com' }],
+    });
+    usersService = new UsersService({ query } as unknown as Pool);
   });
 
-  it('normalizes email and stores only the password hash', async () => {
+  it('normalizes email and sends only its Argon2 hash to PostgreSQL', async () => {
     await usersService.createUser({
       name: '  Sujeith  ',
       email: '  Sujeith@Example.COM  ',
       passwordHash: 'argon2-hash',
     });
 
-    expect(userModel.create).toHaveBeenCalledWith({
-      name: 'Sujeith',
-      email: 'sujeith@example.com',
-      emailNormalized: 'sujeith@example.com',
-      passwordHash: 'argon2-hash',
-    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO users'),
+      ['Sujeith', 'sujeith@example.com', 'sujeith@example.com', 'argon2-hash'],
+    );
   });
 
   it('returns a public user profile without passwordHash', async () => {
@@ -50,9 +41,8 @@ describe('UsersService.createUser', () => {
     });
   });
 
-  it('maps duplicate email errors to conflict responses', async () => {
-    vi.mocked(userModel.create).mockRejectedValueOnce({ code: 11000 });
-
+  it('maps PostgreSQL unique violations to conflict responses', async () => {
+    query.mockRejectedValueOnce({ code: '23505' });
     await expect(
       usersService.createUser({
         name: 'Sujeith',
@@ -62,21 +52,23 @@ describe('UsersService.createUser', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('finds a user by normalized email and includes passwordHash for login', async () => {
-    const exec = vi.fn().mockResolvedValue({
-      _id: { toString: () => 'user-1' },
-      name: 'Sujeith',
-      email: 'sujeith@example.com',
-      passwordHash: 'argon2-hash',
+  it('finds a user by normalized email and maps the password hash', async () => {
+    query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'user-1',
+          name: 'Sujeith',
+          email: 'sujeith@example.com',
+          password_hash: 'argon2-hash',
+        },
+      ],
     });
-    const select = vi.fn().mockReturnValue({ exec });
-    vi.mocked(userModel.findOne).mockReturnValue({ select } as never);
-
-    await usersService.findByEmailWithPasswordHash('  Sujeith@Example.COM  ');
-
-    expect(userModel.findOne).toHaveBeenCalledWith({
-      emailNormalized: 'sujeith@example.com',
-    });
-    expect(select).toHaveBeenCalledWith('+passwordHash');
+    await expect(
+      usersService.findByEmailWithPasswordHash('  Sujeith@Example.COM  '),
+    ).resolves.toMatchObject({ passwordHash: 'argon2-hash' });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('email_normalized = $1'),
+      ['sujeith@example.com'],
+    );
   });
 });

@@ -82,7 +82,10 @@ describe('AuthService.login', () => {
       }),
     };
     sessionsService = {
-      createSession: vi.fn().mockResolvedValue('session-id'),
+      createSession: vi.fn().mockResolvedValue({
+        sessionId: 'session-id',
+        csrfToken: 'csrf-token',
+      }),
     };
     authService = new AuthService(
       usersService as UsersService,
@@ -93,7 +96,7 @@ describe('AuthService.login', () => {
   it('creates a session and returns a safe user profile for valid credentials', async () => {
     const passwordHash = await argon2.hash('correct horse battery');
     vi.mocked(usersService.findByEmailWithPasswordHash).mockResolvedValue({
-      _id: { toString: () => 'user-1' },
+      id: 'user-1',
       name: 'Sujeith',
       email: 'sujeith@example.com',
       passwordHash,
@@ -106,6 +109,7 @@ describe('AuthService.login', () => {
       }),
     ).resolves.toEqual({
       sessionId: 'session-id',
+      csrfToken: 'csrf-token',
       user: {
         id: 'user-1',
         name: 'Sujeith',
@@ -118,7 +122,7 @@ describe('AuthService.login', () => {
   it('does not include passwordHash in the login response', async () => {
     const passwordHash = await argon2.hash('correct horse battery');
     vi.mocked(usersService.findByEmailWithPasswordHash).mockResolvedValue({
-      _id: { toString: () => 'user-1' },
+      id: 'user-1',
       name: 'Sujeith',
       email: 'sujeith@example.com',
       passwordHash,
@@ -131,6 +135,7 @@ describe('AuthService.login', () => {
 
     expect(response).not.toHaveProperty('passwordHash');
     expect(response.sessionId).toBe('session-id');
+    expect(response.csrfToken).toBe('csrf-token');
     expect(response.user).not.toHaveProperty('passwordHash');
   });
 
@@ -148,7 +153,7 @@ describe('AuthService.login', () => {
   it('throws a generic unauthorized error for a wrong password', async () => {
     const passwordHash = await argon2.hash('correct horse battery');
     vi.mocked(usersService.findByEmailWithPasswordHash).mockResolvedValue({
-      _id: { toString: () => 'user-1' },
+      id: 'user-1',
       name: 'Sujeith',
       email: 'sujeith@example.com',
       passwordHash,

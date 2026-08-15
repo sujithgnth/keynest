@@ -11,6 +11,7 @@ describe('AuthController.login', () => {
     const authService = {
       login: vi.fn().mockResolvedValue({
         sessionId: 'raw-session-id',
+        csrfToken: 'csrf-token',
         user: {
           id: 'user-1',
           name: 'Sujeith',
@@ -21,7 +22,10 @@ describe('AuthController.login', () => {
     const response = {
       cookie: vi.fn(),
     };
-    const controller = new AuthController(authService as unknown as AuthService);
+    const controller = new AuthController(
+      authService as unknown as AuthService,
+      {} as never,
+    );
 
     await expect(
       controller.login(
@@ -32,6 +36,7 @@ describe('AuthController.login', () => {
         response as never,
       ),
     ).resolves.toEqual({
+      csrfToken: 'csrf-token',
       user: {
         id: 'user-1',
         name: 'Sujeith',
@@ -45,7 +50,7 @@ describe('AuthController.login', () => {
       {
         httpOnly: true,
         maxAge: SESSION_TTL_MS,
-        path: '/',
+        path: '/api',
         sameSite: 'lax',
         secure: false,
       },

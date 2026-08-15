@@ -1,3 +1,19 @@
+import { IsBase64, IsInt, IsIn, MaxLength, Min } from 'class-validator';
+
 export class UpdateCredentialDto {
-  // TODO: Define update semantics for encrypted payload replacement and optimistic concurrency.
+  @IsInt()
+  @Min(1)
+  expectedRevision!: number;
+
+  @IsInt()
+  @IsIn([1])
+  envelopeVersion!: number;
+
+  @IsBase64()
+  @MaxLength(64)
+  nonce!: string;
+
+  @IsBase64()
+  @MaxLength(180_000)
+  ciphertext!: string;
 }

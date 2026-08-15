@@ -32,17 +32,25 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const isPasswordValid = await argon2.verify(user.passwordHash, loginDto.password);
+    const isPasswordValid = await argon2.verify(
+      user.passwordHash,
+      loginDto.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const publicUser = this.usersService.toPublicUser(user);
-    const sessionId = await this.sessionsService.createSession(publicUser.id);
+    const session = await this.sessionsService.createSession(publicUser.id);
 
     return {
-      sessionId,
+      sessionId: session.sessionId,
+      csrfToken: session.csrfToken,
       user: publicUser,
     };
+  }
+
+  currentUser(userId: string) {
+    return this.usersService.findPublicById(userId);
   }
 }

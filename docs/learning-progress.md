@@ -212,7 +212,7 @@ Immediate:
 
 - `GET /auth/me` design and implementation.
 - Logout design.
- - Redis session validation.
+- Redis session validation.
 - `GET /auth/me` design.
 
 Soon:

@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: KeyNest
+    folder: KeyNest
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

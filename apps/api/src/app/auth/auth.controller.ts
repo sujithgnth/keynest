@@ -1,41 +1,92 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
+import { CsrfGuard } from '../common/csrf.guard';
+import { KeyNestRequest, principalOf } from '../common/request-context';
+import { SessionAuthGuard } from '../common/session-auth.guard';
 import {
   SESSION_COOKIE_NAME,
   SESSION_TTL_MS,
 } from '../sessions/session.constants';
+import { SessionsService } from '../sessions/sessions.service';
+import { AuthRateLimitGuard } from './auth-rate-limit.guard';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionsService: SessionsService,
+  ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(AuthRateLimitGuard)
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthRateLimitGuard)
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const loginResult = await this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto);
+    response.cookie(
+      SESSION_COOKIE_NAME,
+      result.sessionId,
+      this.cookieOptions(),
+    );
+    return { user: result.user, csrfToken: result.csrfToken };
+  }
 
-    response.cookie(SESSION_COOKIE_NAME, loginResult.sessionId, {
+  @Get('me')
+  @UseGuards(SessionAuthGuard)
+  async me(@Req() request: KeyNestRequest) {
+    const principal = principalOf(request);
+    return {
+      user: await this.authService.currentUser(principal.userId),
+      csrfToken: await this.sessionsService.rotateCsrfToken(
+        principal.sessionId,
+      ),
+    };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SessionAuthGuard, CsrfGuard)
+  async logout(
+    @Req() request: KeyNestRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.sessionsService.revokeSession(principalOf(request).sessionId);
+    response.clearCookie(SESSION_COOKIE_NAME, {
+      ...this.cookieOptions(),
+      maxAge: undefined,
+    });
+    return { loggedOut: true };
+  }
+
+  private cookieOptions() {
+    return {
       httpOnly: true,
       maxAge: SESSION_TTL_MS,
-      path: '/',
-      sameSite: 'lax',
+      path: '/api',
+      sameSite: 'lax' as const,
       secure: process.env.NODE_ENV === 'production',
-    });
-
-    return {
-      user: loginResult.user,
     };
   }
 }
