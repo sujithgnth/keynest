@@ -7,6 +7,8 @@
 ![SQL](https://img.shields.io/badge/SQL-4169E1?logo=postgresql&logoColor=white)
 ![YAML](https://img.shields.io/badge/YAML-CB171E?logo=yaml&logoColor=white)
 ![Dockerfile](https://img.shields.io/badge/Dockerfile-2496ED?logo=docker&logoColor=white)
+![Shell](https://img.shields.io/badge/Shell-4EAA25?logo=gnubash&logoColor=white)
+![Batchfile](https://img.shields.io/badge/Batchfile-0078D6?logo=windows&logoColor=white)
 
 KeyNest is a working, educational password-manager MVP built as an Nx
 TypeScript monorepo. It demonstrates browser-side vault encryption, durable
@@ -16,9 +18,9 @@ observability stack.
 ## Languages and platform
 
 The repository contains TypeScript/TSX, JavaScript configuration, CSS, SQL
-migrations, YAML infrastructure/CI configuration, and a Dockerfile. JSON and
-Markdown are also used for configuration and documentation, but they are data
-and prose rather than application languages.
+migrations, YAML infrastructure/CI configuration, a Dockerfile, and Shell and
+Batchfile launchers. JSON and Markdown are also used for configuration and
+documentation, but they are data and prose rather than application languages.
 
 ![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white)
