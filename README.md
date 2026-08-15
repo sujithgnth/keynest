@@ -1,9 +1,32 @@
 # KeyNest
 
+![Work in progress](https://img.shields.io/badge/status-work%20in%20progress-F59E0B)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=111111)
+![CSS](https://img.shields.io/badge/CSS-663399?logo=css&logoColor=white)
+![SQL](https://img.shields.io/badge/SQL-4169E1?logo=postgresql&logoColor=white)
+![YAML](https://img.shields.io/badge/YAML-CB171E?logo=yaml&logoColor=white)
+![Dockerfile](https://img.shields.io/badge/Dockerfile-2496ED?logo=docker&logoColor=white)
+
 KeyNest is a working, educational password-manager MVP built as an Nx
 TypeScript monorepo. It demonstrates browser-side vault encryption, durable
 session and audit storage, asynchronous security-event delivery, and a local
 observability stack.
+
+## Languages and platform
+
+The repository contains TypeScript/TSX, JavaScript configuration, CSS, SQL
+migrations, YAML infrastructure/CI configuration, and a Dockerfile. JSON and
+Markdown are also used for configuration and documentation, but they are data
+and prose rather than application languages.
+
+![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?logo=rabbitmq&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?logo=grafana&logoColor=white)
 
 > KeyNest has not undergone an independent security audit. Use synthetic test
 > credentials only—do not store real passwords in it.

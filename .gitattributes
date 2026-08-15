@@ -1,0 +1,5 @@
+# Include genuine infrastructure and database sources in GitHub's language bar.
+*.sql linguist-detectable=true
+*.yml linguist-detectable=true
+*.yaml linguist-detectable=true
+Dockerfile linguist-detectable=true
