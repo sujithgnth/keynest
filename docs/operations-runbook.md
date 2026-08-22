@@ -1,6 +1,6 @@
 # KeyNest Operations Runbook
 
-Last verified: August 15, 2026
+Last verified: August 22, 2026
 
 This runbook covers the local Docker Compose environment. It is not a
 production deployment guide.
@@ -19,6 +19,36 @@ use it only when that data is intentionally disposable.
 
 PostgreSQL is published on host port 5433 to avoid collisions with a common
 local 5432 installation. Containers use `postgres:5432` internally.
+
+## Temporary public demo
+
+The web container uses same-origin `/api` requests and proxies them internally
+to `api:3333`. A short-lived HTTPS tunnel therefore needs to expose only the
+web service; never tunnel PostgreSQL, Redis, RabbitMQ, Grafana, Prometheus,
+Loki, or the API port directly.
+
+Start the stack, then create a free Cloudflare Quick Tunnel in a separate
+terminal:
+
+```bash
+docker compose up -d --build
+docker run --rm --network keynest_default cloudflare/cloudflared:latest \
+  tunnel --no-autoupdate --url http://web:3000
+```
+
+Cloudflare prints a random `https://*.trycloudflare.com` URL. Add that exact
+origin to the API CORS allow-list and recreate only the API container:
+
+```bash
+WEB_ORIGINS=http://localhost:3000,https://example.trycloudflare.com \
+  docker compose up -d --no-deps --force-recreate api
+```
+
+Verify both the WIP page and readiness through the public URL before sharing
+it. Quick Tunnels are for temporary demonstrations only: the hostname changes
+when the tunnel restarts, the link works only while this machine and Docker are
+running, and the project must still be used with synthetic credentials only.
+Stop the tunnel with `Ctrl+C`; this does not delete KeyNest data.
 
 ## Readiness checks
 

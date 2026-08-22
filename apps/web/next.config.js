@@ -2,23 +2,42 @@
 
 const { composePlugins, withNx } = require('@nx/next');
 
+const publicApiUrl =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333/api';
+const apiOrigin = publicApiUrl.startsWith('/')
+  ? null
+  : new URL(publicApiUrl).origin;
+
 /**
  * @type {import('@nx/next/plugins/with-nx').WithNxOptions}
  **/
 const nextConfig = {
   nx: {},
   poweredByHeader: false,
+  async rewrites() {
+    const configuredProxy = process.env.API_PROXY_URL;
+    if (!configuredProxy) return [];
+
+    const apiProxyUrl = new URL(configuredProxy).toString().replace(/\/$/, '');
+    return [
+      {
+        source: '/api',
+        destination: apiProxyUrl,
+      },
+      {
+        source: '/api/:path*',
+        destination: `${apiProxyUrl}/:path*`,
+      },
+    ];
+  },
   async headers() {
-    const apiOrigin = new URL(
-      process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333/api',
-    ).origin;
     const contentSecurityPolicy = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data:",
       "font-src 'self'",
-      `connect-src 'self' ${apiOrigin}`,
+      `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'none'",
