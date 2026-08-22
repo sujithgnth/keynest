@@ -1,8 +1,13 @@
 import './global.css';
 
 export const metadata = {
-  title: 'KeyNest — encrypted credential vault',
-  description: 'A local-first encrypted credential vault.',
+  title: 'KeyNest (WIP) — encrypted credential vault',
+  description:
+    'A work-in-progress educational credential vault. Use synthetic test credentials only.',
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({

@@ -338,6 +338,7 @@ function Header({
       <div className="brand">
         <span className="brand-mark">K</span>
         <span>KeyNest</span>
+        <span className="wip-chip">WIP</span>
       </div>
       <div className="topbar-actions">
         <span className={`status-pill ${locked ? '' : 'secure'}`}>
@@ -397,6 +398,14 @@ function AuthScreen({
         <div className="brand large">
           <span className="brand-mark">K</span>
           <span>KeyNest</span>
+          <span className="wip-chip">WIP</span>
+        </div>
+        <div className="preview-warning" role="note">
+          <strong>Work in progress</strong>
+          <span>
+            Educational preview only. Use synthetic credentials—do not store
+            real passwords.
+          </span>
         </div>
         <p className="eyebrow">YOUR SECRETS. YOUR KEYS.</p>
         <h1>A quieter, safer place for what matters.</h1>

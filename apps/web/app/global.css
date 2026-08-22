@@ -83,6 +83,20 @@ button {
   font-family: Georgia, serif;
   box-shadow: 0 0 35px rgba(94, 229, 157, 0.16);
 }
+.wip-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid #8a6723;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #ffd98a;
+  background: rgba(117, 76, 12, 0.22);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -178,6 +192,28 @@ button {
 .auth-story .brand {
   position: absolute;
   top: 38px;
+}
+.preview-warning {
+  display: grid;
+  gap: 5px;
+  width: min(650px, 100%);
+  border: 1px solid #725521;
+  border-radius: 12px;
+  padding: 13px 15px;
+  margin: 0 0 28px;
+  color: #ffe3a3;
+  background: rgba(105, 67, 10, 0.2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.preview-warning strong {
+  color: #ffd47a;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.preview-warning span {
+  color: #d9c59b;
 }
 .eyebrow {
   color: var(--mint-strong) !important;
