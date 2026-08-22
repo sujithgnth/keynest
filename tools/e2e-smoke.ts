@@ -60,10 +60,35 @@ async function waitForOutbox(actorUserId: string): Promise<number> {
 }
 
 async function main() {
-  const health = await request<{
+  const healthResponse = await fetch(`${apiUrl}/health/ready`);
+  if (!healthResponse.ok) {
+    throw new Error(
+      `GET /health/ready failed (${healthResponse.status}): ${await healthResponse.text()}`,
+    );
+  }
+  const contentSecurityPolicy = healthResponse.headers.get(
+    'content-security-policy',
+  );
+  const requiredDirectives = [
+    "default-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ];
+  if (
+    !contentSecurityPolicy ||
+    requiredDirectives.some(
+      (directive) => !contentSecurityPolicy.includes(directive),
+    )
+  ) {
+    throw new Error(
+      `API Content-Security-Policy is missing required directives: ${contentSecurityPolicy ?? 'missing'}`,
+    );
+  }
+  const health = (await healthResponse.json()) as {
     status: string;
     dependencies: Record<string, string>;
-  }>('/health/ready');
+  };
   if (
     health.status !== 'ready' ||
     Object.values(health.dependencies).some((value) => value !== 'up')
@@ -142,6 +167,7 @@ async function main() {
   process.stdout.write(
     `${JSON.stringify({
       health: health.status,
+      apiContentSecurityPolicy: true,
       registered: true,
       vaultRoundTrip: true,
       plaintextServerMatches: 0,

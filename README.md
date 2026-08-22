@@ -53,6 +53,7 @@ documentation, but they are data and prose rather than application languages.
 - Argon2id account-password hashing and opaque HttpOnly sessions
 - Redis-backed login/register rate limits and session-cache acceleration
 - CSRF protection on state-changing authenticated routes
+- Restrictive response security headers on both the Next.js web app and API
 - Create and unlock a browser-encrypted vault
 - Add, edit, delete, search, reveal, copy, and generate credentials
 - AES-256-GCM authenticated encryption with per-envelope nonces and AAD
