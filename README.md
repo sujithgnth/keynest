@@ -160,3 +160,13 @@ This project is an educational portfolio project. It has not undergone a profess
 - Recovery tradeoff explanation
 - Deployment diagram
 - Observability notes
+
+## License
+
+**Proprietary — all rights reserved.** This repository is public for portfolio
+review only. Copying, modification, redistribution, reuse, or incorporation into
+another project is not permitted except for rights required by GitHub's Terms of
+Service or with prior written permission. See [LICENSE](LICENSE).
+
+The restriction applies prospectively and does not revoke permissions validly
+granted with an earlier version.
