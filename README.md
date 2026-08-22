@@ -15,6 +15,18 @@ TypeScript monorepo. It demonstrates browser-side vault encryption, durable
 session and audit storage, asynchronous security-event delivery, and a local
 observability stack.
 
+## Project status
+
+**Work in progress — last verified August 22, 2026.** The implemented vertical
+slice is suitable for architecture review, local testing, and demonstrations
+with synthetic data. It is not a hosted password-manager service, has no stable
+public-availability commitment, and must not be used for real credentials.
+
+A temporary HTTPS demo may be shared while the maintainer's local Docker stack
+and tunnel are running. Its address can change without notice. The
+[operations runbook](docs/operations-runbook.md#temporary-public-demo-cloudflare-quick-tunnel)
+documents that demo path and its limitations.
+
 ## Languages and platform
 
 The repository contains TypeScript/TSX, JavaScript configuration, CSS, SQL
@@ -31,7 +43,9 @@ documentation, but they are data and prose rather than application languages.
 ![Grafana](https://img.shields.io/badge/Grafana-F46800?logo=grafana&logoColor=white)
 
 > KeyNest has not undergone an independent security audit. Use synthetic test
-> credentials only—do not store real passwords in it.
+> credentials only—do not store real passwords in it. Report suspected
+> vulnerabilities through the [security policy](SECURITY.md), not a public
+> issue.
 
 ## What works
 
@@ -133,6 +147,18 @@ npm run verify
 `npm run test:e2e` creates synthetic data, performs a real encrypted round
 trip, verifies that its plaintext sentinel is absent from server-side storage,
 waits for the RabbitMQ outbox to publish, and removes the test account.
+
+## Repository security automation
+
+The public GitHub repository has Dependabot vulnerability alerts and security
+updates, secret scanning with push protection, CodeQL default scanning for
+JavaScript/TypeScript, and private vulnerability reporting enabled. Weekly
+version-update checks cover both npm and GitHub Actions dependencies through
+`.github/dependabot.yml`.
+
+These controls help detect dependency, code, and credential-leak risks. They do
+not certify the application, prove the absence of vulnerabilities, or replace
+the runtime and security-boundary tests described above.
 
 ## Security boundaries and trade-offs
 
