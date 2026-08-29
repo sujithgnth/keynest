@@ -17,15 +17,15 @@ the API. Reusing one value for both is discouraged in the UI and architecture.
    for an unknown email or wrong password.
 3. Argon2id verifies the account password.
 4. The API creates independent random 256-bit session and CSRF tokens.
-5. SHA-256 token hashes are stored in PostgreSQL. The raw session token is sent
+5. SHA-256 token hashes are stored in MongoDB. The raw session token is sent
    only as an HttpOnly, SameSite=Lax cookie; the raw CSRF token is returned in
    the response body for in-memory client use.
 
 ## Session validation and revocation
 
-Redis caches the non-secret session record by a hash of the cookie. PostgreSQL
+Redis caches the non-secret session record by a hash of the cookie. MongoDB
 remains authoritative and stores expiry, last use, and revocation. A cache miss
-or Redis outage falls back to PostgreSQL. Sign-out revokes the current session;
+or Redis outage falls back to MongoDB. Sign-out revokes the current session;
 the sessions endpoint can revoke all active sessions and sets a Redis revocation
 watermark so cached records are rejected deterministically.
 

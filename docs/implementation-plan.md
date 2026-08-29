@@ -8,6 +8,10 @@ Depends on: `docs/current-analysis.md`
 > operational stack are now implemented; see `docs/implementation-status.md`.
 > Angular Admin, family sharing, enterprise policy, and the other explicitly
 > deferred phases below are not delivered.
+>
+> **Persistence update:** ADR 004 selects MongoDB for the current MVP. The
+> PostgreSQL sections below are a later architecture exercise for the expanded
+> multi-tenant platform, not the active runtime or an approved migration.
 
 ## Goal
 
@@ -31,8 +35,9 @@ large feature count.
    workflows; it cannot decrypt user vaults.
 5. Next.js owns public, indexable content; it does not duplicate authenticated
    vault or admin features.
-6. PostgreSQL is the durable source of truth. Redis is optional operational
-   infrastructure, not a substitute for the required relational model.
+6. MongoDB is the current MVP source of truth. PostgreSQL remains the proposed
+   comparison target for the expanded multi-tenant platform. Redis is optional
+   operational infrastructure, not a durable vault store.
 7. Existing accepted ADRs and working security behavior are preserved until an
    explicit, tested replacement is approved.
 8. KeyNest remains labelled educational and unaudited. Test data must be

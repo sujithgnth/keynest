@@ -12,11 +12,16 @@ for storing real secrets.
 - `apps/web`: Next.js client and the browser plaintext/cryptographic boundary.
 - `apps/api`: NestJS API for accounts, sessions, ciphertext storage, auditing,
   outbox publication, and operational signals.
+- `apps/api/src/app/domains`: identity, vault, and audit bounded contexts. Each
+  owns domain, application, infrastructure, presentation, module, and public
+  API files.
+- `apps/api/src/app/platform`: shared runtime adapters for MongoDB, RabbitMQ,
+  health, HTTP request context, configuration, and observability.
 - `apps/worker`: RabbitMQ consumer for asynchronous security events.
 - `libs/crypto`: Browser-side vault key wrapping and credential encryption.
 - `libs/types`, `libs/validation`, `libs/ui`: shared contracts and UI code.
-- `tools`: database migration and end-to-end smoke workflows.
-- `monitoring` and `docker-compose.yml`: local PostgreSQL, Redis, RabbitMQ,
+- `tools`: MongoDB schema setup and end-to-end smoke workflows.
+- `infrastructure` and `docker-compose.yml`: local MongoDB, Redis, RabbitMQ,
   Prometheus, Grafana, Loki, and Promtail stack.
 - `docs`: architecture decisions, threat model, operating instructions, and
   implementation status.
@@ -61,6 +66,8 @@ for storing real secrets.
 7. Keep public names, commits, branches, and documentation focused on the
    product and engineering decision. Do not add assistant or tooling attribution
    unless it is part of a real product integration.
+8. Keep domain entities framework-neutral, keep HTTP DTOs out of application
+   services, and route cross-domain imports through `public-api.ts`.
 
 ## Verification
 
@@ -72,7 +79,7 @@ Run checks in proportion to the change and prefer the repository scripts:
 - Production builds: `npm run build`
 - Standard full gate: `npm run verify`
 - Runtime integration, when the local stack is available:
-  `npm run infra:up`, `npm run db:migrate`, then `npm run test:e2e`
+  `npm run infra:up`, `npm run db:setup`, then `npm run test:e2e`
 
 For distributed changes, also inspect the database transaction, outbox record,
 RabbitMQ payload/acknowledgement behavior, worker logs, metrics, and failure

@@ -17,14 +17,17 @@ docker compose down
 local database, Redis data, RabbitMQ state, metrics, logs, and Grafana state;
 use it only when that data is intentionally disposable.
 
-PostgreSQL is published on host port 5433 to avoid collisions with a common
-local 5432 installation. Containers use `postgres:5432` internally.
+MongoDB is published on host port 27018. Redis uses 6380, and RabbitMQ uses
+5673/15673, avoiding common default-port collisions with other local projects.
+Compose configures a single-node
+replica set because the audit/outbox write uses a transaction. This is a local
+transaction test topology, not a highly available database deployment.
 
 ## Temporary public demo
 
 The web container uses same-origin `/api` requests and proxies them internally
 to `api:3333`. A short-lived HTTPS tunnel therefore needs to expose only the
-web service; never tunnel PostgreSQL, Redis, RabbitMQ, Grafana, Prometheus,
+web service; never tunnel MongoDB, Redis, RabbitMQ, Grafana, Prometheus,
 Loki, or the API port directly.
 
 Start the stack, then create a free Cloudflare Quick Tunnel in a separate
@@ -57,11 +60,32 @@ curl -fsS http://localhost:3333/api/health/live
 curl -fsS http://localhost:3333/api/health/ready
 curl -fsS http://localhost:9090/-/ready
 curl -fsS http://localhost:3100/ready
-curl -fsS -u keynest:keynest http://localhost:15672/api/health/checks/alarms
+curl -fsS -u keynest:keynest http://localhost:15673/api/health/checks/alarms
 ```
 
-API readiness requires PostgreSQL, Redis, and RabbitMQ. The migration service
-should exit with code 0; it is not expected to remain running.
+API readiness requires MongoDB, Redis, and RabbitMQ. The `mongo-init` and
+`mongo-setup` services should exit with code 0; they are not expected to remain
+running.
+
+## Experimental WebMCP check
+
+Signed-out status-tool discovery and invocation were last checked on August 29, 2026. The authenticated lock-tool path still requires the manual check below.
+
+WebMCP is progressive enhancement; ordinary KeyNest behavior does not depend on
+it. For local Chrome testing, enable
+`chrome://flags/#enable-webmcp-testing`, relaunch Chrome, and open KeyNest. In
+the Application panel's WebMCP view, verify:
+
+1. `keynest_get_vault_status` is always registered and returns only sign-in
+   state, vault state, and an aggregate item count while unlocked.
+2. `keynest_lock_vault` appears only while the vault is unlocked.
+3. Invoking the lock tool clears the unlocked UI and removes the lock tool.
+4. No tool input or output contains credential fields, item identifiers, URLs,
+   cookies, CSRF values, vault metadata, or key material.
+
+The automated unit tests validate the reduced-state boundary and registration
+failure cleanup. The Docker E2E test does not emulate a browser agent, so do not
+claim live WebMCP invocation unless the browser check above was performed.
 
 ## Logs
 
@@ -96,10 +120,11 @@ dashboard is evidence of instrumentation, not evidence of a production SLO.
 
 ## RabbitMQ and the outbox
 
-The API writes an audit event and its outbox record in one PostgreSQL
-transaction. The publisher selects pending records with `FOR UPDATE SKIP
-LOCKED`, publishes persistent messages through a confirm channel, and marks a
-record published only after broker confirmation.
+The API writes an audit event and its outbox record in one MongoDB replica-set
+transaction. The publisher atomically claims one pending record with a
+30-second lease, publishes a persistent message through a confirm channel, and
+marks the record published only after broker confirmation. It does not keep a
+database transaction open during broker I/O.
 
 The `keynest.security-events` queue is durable. The worker uses manual
 acknowledgements and prefetch 20. Invalid messages are rejected without
@@ -107,29 +132,29 @@ requeueing and reach `keynest.security-events.dead` through the dead-letter
 exchange.
 
 This is at-least-once delivery: a crash after RabbitMQ confirmation but before
-the PostgreSQL commit can cause a duplicate. Message IDs are stable, so a
+the MongoDB published update can cause a duplicate. Message IDs are stable, so a
 future side-effecting consumer must persist processed IDs or make its operation
 idempotent.
 
-Inspect queue state at http://localhost:15672 or with:
+Inspect queue state at http://localhost:15673 or with:
 
 ```bash
 docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
 ```
 
-## Database migrations and backup
+## Database setup and backup
 
-Migrations are ordered SQL files in `infrastructure/postgres/migrations`. They
-are recorded in `schema_migrations` and run transactionally:
+Collection and index setup is idempotent and runs after replica-set
+initialization:
 
 ```bash
-npm run db:migrate
+npm run db:setup
 ```
 
 For a local logical backup:
 
 ```bash
-docker compose exec -T postgres pg_dump -U keynest -d keynest -Fc > keynest.dump
+docker compose exec -T mongo mongodump --db keynest --archive > keynest.archive
 ```
 
 The dump still contains authentication hashes, session hashes, vault metadata,
@@ -140,7 +165,7 @@ the durable source of truth for vault records.
 
 | Symptom                           | Check                                                          |
 | --------------------------------- | -------------------------------------------------------------- |
-| API remains unhealthy             | `docker compose logs migrate api`                              |
+| API remains unhealthy             | `docker compose logs mongo mongo-init mongo-setup api`         |
 | Readiness reports Redis down      | `docker compose logs redis api`                                |
 | Readiness reports RabbitMQ down   | Rabbit health and API publisher connection logs                |
 | Dashboard has no metrics          | Prometheus target health and `/api/metrics`                    |

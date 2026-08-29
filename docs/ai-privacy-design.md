@@ -5,7 +5,7 @@ Last updated: August 15, 2026
 ## Current architecture
 
 KeyNest is an Nx monorepo with a working Next.js browser vault, a NestJS API,
-PostgreSQL-backed durable state, Redis-assisted sessions and auth rate limits,
+MongoDB-backed durable state, Redis-assisted sessions and auth rate limits,
 RabbitMQ security events, and shared TypeScript libraries. Vault storage,
 credential storage, browser cryptography, audit events, and the personal-vault
 UI are implemented.

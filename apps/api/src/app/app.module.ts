@@ -2,17 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuditLogsModule } from './audit-logs/audit-logs.module';
-import { AuthModule } from './auth/auth.module';
-import { CommonModule } from './common/common.module';
-import { CredentialsModule } from './credentials/credentials.module';
-import { DatabaseModule } from './database/database.module';
-import { HealthModule } from './health/health.module';
-import { MessagingModule } from './messaging/messaging.module';
-import { ObservabilityModule } from './observability/observability.module';
-import { SessionsModule } from './sessions/sessions.module';
-import { UsersModule } from './users/users.module';
-import { VaultModule } from './vault/vault.module';
+import { AuditModule } from './domains/audit/public-api';
+import { IdentityModule } from './domains/identity/public-api';
+import { VaultModule } from './domains/vault/public-api';
+import { DatabaseModule } from './platform/database/database.module';
+import { HealthModule } from './platform/health/health.module';
+import { MessagingModule } from './platform/messaging/messaging.module';
+import { ObservabilityModule } from './platform/observability/observability.module';
 
 @Module({
   imports: [
@@ -22,14 +18,10 @@ import { VaultModule } from './vault/vault.module';
     DatabaseModule,
     ObservabilityModule,
     MessagingModule,
-    CommonModule,
-    HealthModule,
-    AuthModule,
-    UsersModule,
+    IdentityModule,
+    AuditModule,
     VaultModule,
-    CredentialsModule,
-    SessionsModule,
-    AuditLogsModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -24,7 +24,7 @@ let connection: ChannelModel | undefined;
 
 async function main() {
   const url =
-    process.env.RABBITMQ_URL ?? 'amqp://keynest:keynest@localhost:5672';
+    process.env.RABBITMQ_URL ?? 'amqp://keynest:keynest@localhost:5673';
   connection = await amqp.connect(url);
   const channel = await connection.createChannel();
   await channel.assertExchange(EXCHANGE, 'topic', { durable: true });

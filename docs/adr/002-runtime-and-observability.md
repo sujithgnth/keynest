@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted on August 15, 2026
+Partially superseded on August 29, 2026. ADR 004 replaces the PostgreSQL and
+direct-`pg` decisions. The RabbitMQ outbox delivery and local observability
+decisions remain accepted.
 
 ## Context
 

@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createKeyNestWebMcpTools, registerKeyNestWebMcpTools } from './webmcp';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333/api';
 type Screen = 'loading' | 'auth' | 'locked' | 'setup' | 'vault';
@@ -102,6 +103,20 @@ export function VaultApp() {
     setScreen(vault ? 'locked' : 'setup');
     setNotice('Vault locked. Decrypted data was removed from app state.');
   }, [vault]);
+
+  useEffect(() => {
+    const modelContext = document.modelContext;
+    if (!modelContext) return;
+
+    const controller = new AbortController();
+    const tools = createKeyNestWebMcpTools(
+      { screen, itemCount: screen === 'vault' ? items.length : 0 },
+      lock,
+    );
+    void registerKeyNestWebMcpTools(modelContext, tools, controller);
+
+    return () => controller.abort();
+  }, [items.length, lock, screen]);
 
   useEffect(() => {
     if (screen !== 'vault') return;

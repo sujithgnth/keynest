@@ -5,10 +5,10 @@ import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app/app.module';
-import { loadRuntimeConfig } from './app/config/runtime-config';
-import { HttpExceptionEnvelopeFilter } from './app/observability/http-exception.filter';
-import { KeyNestLogger } from './app/observability/keynest-logger.service';
-import { MetricsService } from './app/observability/metrics.service';
+import { loadRuntimeConfig } from './app/platform/config/runtime-config';
+import { HttpExceptionEnvelopeFilter } from './app/platform/observability/http-exception.filter';
+import { KeyNestLogger } from './app/platform/observability/keynest-logger.service';
+import { MetricsService } from './app/platform/observability/metrics.service';
 
 async function bootstrap() {
   const config = loadRuntimeConfig();

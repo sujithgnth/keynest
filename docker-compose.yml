@@ -1,24 +1,37 @@
 name: keynest
 services:
-  postgres:
-    image: postgres:18.3-alpine
-    environment:
-      POSTGRES_DB: keynest
-      POSTGRES_USER: keynest
-      POSTGRES_PASSWORD: keynest
-    ports: ['5433:5432']
-    # PostgreSQL 18 stores major-version clusters beneath this parent path.
-    volumes: ['postgres_data:/var/lib/postgresql']
+  mongo:
+    image: mongo:8.0.29
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
+    ports: ['127.0.0.1:${KEYNEST_MONGODB_PORT:-27018}:27017']
+    volumes: ['mongo_data:/data/db']
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U keynest -d keynest']
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 15
+
+  mongo-init:
+    image: mongo:8.0.29
+    entrypoint: ['/bin/bash', '-c']
+    command:
+      - |
+        mongosh --host mongo:27017 --quiet --eval '
+          try {
+            rs.status();
+          } catch (error) {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] });
+          }
+        '
+        until mongosh --host mongo:27017 --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'; do sleep 1; done
+    depends_on:
+      mongo: { condition: service_healthy }
+    restart: 'no'
 
   redis:
     image: redis:8.2-alpine
     command: ['redis-server', '--appendonly', 'yes']
-    ports: ['6379:6379']
+    ports: ['127.0.0.1:${KEYNEST_REDIS_PORT:-6380}:6379']
     volumes: ['redis_data:/data']
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
@@ -31,7 +44,9 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: keynest
       RABBITMQ_DEFAULT_PASS: keynest
-    ports: ['5672:5672', '15672:15672']
+    ports:
+      - '127.0.0.1:${KEYNEST_RABBITMQ_PORT:-5673}:5672'
+      - '127.0.0.1:${KEYNEST_RABBITMQ_MANAGEMENT_PORT:-15673}:15672'
     volumes: ['rabbitmq_data:/var/lib/rabbitmq']
     healthcheck:
       test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
@@ -39,13 +54,13 @@ services:
       timeout: 5s
       retries: 15
 
-  migrate:
+  mongo-setup:
     build: .
-    command: ['npm', 'run', 'db:migrate']
+    command: ['npm', 'run', 'db:setup']
     environment:
-      DATABASE_URL: postgresql://keynest:keynest@postgres:5432/keynest
+      MONGODB_URI: mongodb://mongo:27017/keynest?replicaSet=rs0
     depends_on:
-      postgres: { condition: service_healthy }
+      mongo-init: { condition: service_completed_successfully }
     restart: 'no'
 
   api:
@@ -55,7 +70,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3333
-      DATABASE_URL: postgresql://keynest:keynest@postgres:5432/keynest
+      MONGODB_URI: mongodb://mongo:27017/keynest?replicaSet=rs0
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://keynest:keynest@rabbitmq:5672
       WEB_ORIGINS: ${WEB_ORIGINS:-http://localhost:3000}
@@ -64,7 +79,7 @@ services:
     ports: ['3333:3333']
     volumes: ['keynest_logs:/var/log/keynest']
     depends_on:
-      migrate: { condition: service_completed_successfully }
+      mongo-setup: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
     healthcheck:
@@ -148,7 +163,7 @@ services:
     depends_on: [prometheus, loki]
 
 volumes:
-  postgres_data:
+  mongo_data:
   redis_data:
   rabbitmq_data:
   prometheus_data:

@@ -4,7 +4,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=111111)
 ![CSS](https://img.shields.io/badge/CSS-663399?logo=css&logoColor=white)
-![SQL](https://img.shields.io/badge/SQL-4169E1?logo=postgresql&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
 ![YAML](https://img.shields.io/badge/YAML-CB171E?logo=yaml&logoColor=white)
 ![Dockerfile](https://img.shields.io/badge/Dockerfile-2496ED?logo=docker&logoColor=white)
 ![Shell](https://img.shields.io/badge/Shell-4EAA25?logo=gnubash&logoColor=white)
@@ -17,7 +17,7 @@ observability stack.
 
 ## Project status
 
-**Work in progress — last verified August 22, 2026.** The implemented vertical
+**Work in progress — last verified August 29, 2026.** The implemented vertical
 slice is suitable for architecture review, local testing, and demonstrations
 with synthetic data. It is not a hosted password-manager service, has no stable
 public-availability commitment, and must not be used for real credentials.
@@ -29,14 +29,14 @@ documents that demo path and its limitations.
 
 ## Languages and platform
 
-The repository contains TypeScript/TSX, JavaScript configuration, CSS, SQL
-migrations, YAML infrastructure/CI configuration, a Dockerfile, and Shell and
-Batchfile launchers. JSON and Markdown are also used for configuration and
-documentation, but they are data and prose rather than application languages.
+The repository contains TypeScript/TSX, JavaScript configuration, CSS, YAML
+infrastructure/CI configuration, a Dockerfile, and Shell and Batchfile
+launchers. JSON and Markdown are also used for configuration and documentation,
+but they are data and prose rather than application languages.
 
 ![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?logo=rabbitmq&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?logo=prometheus&logoColor=white)
@@ -56,9 +56,12 @@ documentation, but they are data and prose rather than application languages.
 - Restrictive response security headers on both the Next.js web app and API
 - Create and unlock a browser-encrypted vault
 - Add, edit, delete, search, reveal, copy, and generate credentials
+- Experimental WebMCP tools for aggregate vault status and in-memory locking
 - AES-256-GCM authenticated encryption with per-envelope nonces and AAD
-- PostgreSQL persistence for users, sessions, encrypted vaults, audit records,
-  and an outbox
+- MongoDB persistence for users, sessions, encrypted vaults, audit records, and
+  a transactional outbox
+- Domain-oriented NestJS API split into identity, vault, and audit bounded
+  contexts with enforced dependency boundaries
 - RabbitMQ publisher confirms, durable queues, manual worker acknowledgements,
   bounded prefetch, and a dead-letter queue
 - Structured redacted Pino logs shipped through Promtail to Loki
@@ -71,7 +74,7 @@ documentation, but they are data and prose rather than application languages.
 flowchart LR
   B["Next.js browser vault"] -->|"account auth + encrypted envelopes"| A["NestJS API"]
   B -->|"derive, wrap, encrypt, decrypt"| C["Web Crypto API"]
-  A --> P[(PostgreSQL)]
+  A --> P[(MongoDB replica set)]
   A --> R[(Redis)]
   A -->|"transactional outbox"| Q[(RabbitMQ)]
   Q --> W["Security event worker"]
@@ -88,6 +91,26 @@ with Argon2id. The separate vault master password never leaves the browser. It
 derives a wrapping key with PBKDF2-SHA256; the API receives only the encrypted
 vault key and encrypted item envelopes.
 
+### Backend domain layout
+
+The API is a modular monolith organized by business capability rather than by
+global controller/service/repository folders:
+
+```text
+apps/api/src/app/
+├── domains/
+│   ├── identity/   # users, authentication, sessions, and CSRF
+│   ├── vault/      # wrapped vault keys and encrypted credential items
+│   └── audit/      # audit history and transactional outbox
+└── platform/       # MongoDB connection, RabbitMQ, health, HTTP, and telemetry
+```
+
+Each bounded context owns `domain`, `application`, `infrastructure`, and
+`presentation` layers plus a NestJS module and `public-api.ts`. Domain entities
+remain framework-neutral, application services do not accept HTTP DTO classes,
+and cross-domain imports must use the target context's public API. An
+architecture test enforces these rules.
+
 ## Run the complete system
 
 Requirements: Docker Desktop and a recent Node.js/npm installation.
@@ -98,19 +121,20 @@ docker compose ps
 npm run test:e2e
 ```
 
-The migration container runs before the API, and the web container starts only
-after API readiness succeeds. The first image build can take a few minutes.
+The MongoDB setup container creates collections and indexes before the API, and
+the web container starts only after API readiness succeeds. The first image
+build can take a few minutes.
 
-| Service             | URL / address                                  | Local credentials |
-| ------------------- | ---------------------------------------------- | ----------------- |
-| KeyNest             | http://localhost:3000                          | create an account |
-| API readiness       | http://localhost:3333/api/health/ready         | none              |
-| API metrics         | http://localhost:3333/api/metrics              | none              |
-| Grafana dashboard   | http://localhost:3001/d/keynest-overview       | admin / keynest   |
-| RabbitMQ management | http://localhost:15672                         | keynest / keynest |
-| Prometheus          | http://localhost:9090                          | none              |
-| Loki                | http://localhost:3100/ready                    | none              |
-| PostgreSQL          | localhost:5433, database/user/password keynest | keynest           |
+| Service             | URL / address                            | Local credentials  |
+| ------------------- | ---------------------------------------- | ------------------ |
+| KeyNest             | http://localhost:3000                    | create an account  |
+| API readiness       | http://localhost:3333/api/health/ready   | none               |
+| API metrics         | http://localhost:3333/api/metrics        | none               |
+| Grafana dashboard   | http://localhost:3001/d/keynest-overview | admin / keynest    |
+| RabbitMQ management | http://localhost:15673                   | keynest / keynest  |
+| Prometheus          | http://localhost:9090                    | none               |
+| Loki                | http://localhost:3100/ready              | none               |
+| MongoDB             | localhost:27018, database `keynest`      | local network only |
 
 These credentials and open management ports are intentionally local-only
 defaults. Replace them and terminate TLS at a reverse proxy before any remote
@@ -130,7 +154,7 @@ health checks, failure behavior, and backups.
 ```bash
 npm install
 npm run infra:up
-npm run db:migrate
+npm run db:setup
 npm run dev:api
 npm run dev:web
 ```
@@ -171,6 +195,10 @@ the runtime and security-boundary tests described above.
   while unlocked. The UI auto-locks after 15 minutes of inactivity.
 - Local search works after decryption. There is intentionally no server-side
   plaintext search.
+- User-defined category filtering and display sorting also run locally. The
+  server can filter only coarse item type and order ciphertext for sync by
+  update time and ID; exposing title/domain/category indexes was rejected as a
+  metadata leak.
 - PBKDF2 was selected because it is available through native Web Crypto. It is
   CPU-hard, not memory-hard; a future Argon2id browser migration must introduce
   a new versioned envelope and migration path.
@@ -178,11 +206,20 @@ the runtime and security-boundary tests described above.
   critical threat while the vault is unlocked.
 - There is deliberately no vault-password recovery. Losing it loses access to
   the encrypted vault.
+- WebMCP is a progressive enhancement. Its reduced-state module exposes only
+  sign-in/lock state, unlocked item count, and a lock action; credential CRUD,
+  secret retrieval, password generation, authentication, and unlock are not
+  agent tools.
 - The outbox/RabbitMQ path provides at-least-once delivery. Consumers must use
   the event ID for idempotency.
 
 Read [ADR 001](docs/adr/001-client-side-encryption.md),
-[ADR 002](docs/adr/002-runtime-and-observability.md), the
+[ADR 002](docs/adr/002-runtime-and-observability.md),
+[ADR 003](docs/adr/003-webmcp-agent-boundary.md),
+[ADR 004](docs/adr/004-mongodb-first-persistence.md),
+[ADR 005](docs/adr/005-encrypted-metadata-boundary.md),
+[ADR 006](docs/adr/006-domain-oriented-api-boundaries.md), the
+[MongoDB/PostgreSQL comparison](docs/postgresql-comparison.md), the
 [threat model](docs/threat-model.md), and the
 [implementation status](docs/implementation-status.md) before describing the
 project in an interview.

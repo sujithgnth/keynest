@@ -9,18 +9,27 @@ import type {
   VaultMetadata,
 } from '@keynest/types';
 import { randomUUID } from 'node:crypto';
-import { Pool } from 'pg';
+import { MongoClient } from 'mongodb';
+import { getAuditCollections } from '../apps/api/src/app/domains/audit/infrastructure/mongo/audit.collections';
+import { getIdentityCollections } from '../apps/api/src/app/domains/identity/infrastructure/mongo/identity.collections';
+import { getVaultCollections } from '../apps/api/src/app/domains/vault/infrastructure/mongo/vault.collections';
 
 const apiUrl = process.env.API_URL ?? 'http://localhost:3333/api';
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  'postgresql://keynest:keynest@localhost:5433/keynest';
+const mongoUrl =
+  process.env.MONGODB_URI ??
+  'mongodb://localhost:27018/keynest?replicaSet=rs0&directConnection=true';
 const runId = randomUUID();
 const email = `smoke-${runId}@keynest.test`;
 const accountPassword = `Account-${runId}!`;
 const masterPassword = `Vault-${runId}-master!`;
 const sentinel = `private-${runId}`;
-const pool = new Pool({ connectionString: databaseUrl });
+const mongo = new MongoClient(mongoUrl, { appName: 'keynest-e2e' });
+const database = mongo.db(process.env.MONGODB_DATABASE ?? 'keynest');
+const collections = {
+  ...getIdentityCollections(database),
+  ...getVaultCollections(database),
+  ...getAuditCollections(database),
+};
 let cookie = '';
 let csrfToken = '';
 let userId = '';
@@ -47,12 +56,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 async function waitForOutbox(actorUserId: string): Promise<number> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const result = await pool.query<{ pending: string }>(
-      `SELECT count(*)::text AS pending FROM outbox_events
-       WHERE payload->>'actorUserId' = $1 AND published_at IS NULL`,
-      [actorUserId],
-    );
-    const pending = Number(result.rows[0].pending);
+    const pending = await collections.outboxEvents.countDocuments({
+      'payload.actorUserId': actorUserId,
+      publishedAt: { $exists: false },
+    });
     if (pending === 0) return 0;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -60,6 +67,7 @@ async function waitForOutbox(actorUserId: string): Promise<number> {
 }
 
 async function main() {
+  await mongo.connect();
   const healthResponse = await fetch(`${apiUrl}/health/ready`);
   if (!healthResponse.ok) {
     throw new Error(
@@ -145,18 +153,13 @@ async function main() {
     throw new Error('Decrypted credential does not match the original payload');
   }
 
-  const leakage = await pool.query<{ matches: string }>(
-    `SELECT (
-       (SELECT count(*) FROM vault_items
-        WHERE ciphertext ILIKE $1 OR nonce ILIKE $1) +
-       (SELECT count(*) FROM audit_events
-        WHERE metadata::text ILIKE $1) +
-       (SELECT count(*) FROM outbox_events
-        WHERE payload::text ILIKE $1)
-     )::text AS matches`,
-    [`%${sentinel}%`],
-  );
-  if (Number(leakage.rows[0].matches) !== 0) {
+  const serverDocuments = await Promise.all([
+    collections.vaults.findOne({ _id: vault.id }),
+    collections.credentialItems.findOne({ _id: itemId }),
+    collections.auditLogs.find({ actorUserId: userId }).toArray(),
+    collections.outboxEvents.find({ 'payload.actorUserId': userId }).toArray(),
+  ]);
+  if (JSON.stringify(serverDocuments).includes(sentinel)) {
     throw new Error('Plaintext sentinel was found in server-side storage');
   }
 
@@ -186,17 +189,28 @@ main()
   })
   .finally(async () => {
     if (userId) {
-      await pool
-        .query(`DELETE FROM outbox_events WHERE payload->>'actorUserId' = $1`, [
-          userId,
-        ])
-        .catch(() => undefined);
-      await pool
-        .query('DELETE FROM audit_events WHERE actor_user_id = $1', [userId])
-        .catch(() => undefined);
-      await pool
-        .query('DELETE FROM users WHERE id = $1', [userId])
-        .catch(() => undefined);
+      const vault = await collections.vaults.findOne(
+        { ownerUserId: userId },
+        { projection: { _id: 1 } },
+      );
+      if (vault) {
+        await collections.credentialItems
+          .deleteMany({ vaultId: vault._id })
+          .catch(() => undefined);
+        await collections.vaults
+          .deleteOne({ _id: vault._id })
+          .catch(() => undefined);
+      }
+      await Promise.all([
+        collections.outboxEvents
+          .deleteMany({ 'payload.actorUserId': userId })
+          .catch(() => undefined),
+        collections.auditLogs
+          .deleteMany({ actorUserId: userId })
+          .catch(() => undefined),
+        collections.sessions.deleteMany({ userId }).catch(() => undefined),
+        collections.users.deleteOne({ _id: userId }).catch(() => undefined),
+      ]);
     }
-    await pool.end();
+    await mongo.close();
   });
