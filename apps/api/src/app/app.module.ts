@@ -1,29 +1,27 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuditLogsModule } from './audit-logs/audit-logs.module';
-import { AuthModule } from './auth/auth.module';
-import { CredentialsModule } from './credentials/credentials.module';
-import { SessionsModule } from './sessions/sessions.module';
-import { UsersModule } from './users/users.module';
-import { VaultModule } from './vault/vault.module';
+import { AuditModule } from './domains/audit/public-api';
+import { IdentityModule } from './domains/identity/public-api';
+import { VaultModule } from './domains/vault/public-api';
+import { DatabaseModule } from './platform/database/database.module';
+import { HealthModule } from './platform/health/health.module';
+import { MessagingModule } from './platform/messaging/messaging.module';
+import { ObservabilityModule } from './platform/observability/observability.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    MongooseModule.forRoot(
-      process.env.MONGODB_URI ?? 'mongodb://localhost:27017/keynest',
-    ),
-    AuthModule,
-    UsersModule,
+    DatabaseModule,
+    ObservabilityModule,
+    MessagingModule,
+    IdentityModule,
+    AuditModule,
     VaultModule,
-    CredentialsModule,
-    SessionsModule,
-    AuditLogsModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

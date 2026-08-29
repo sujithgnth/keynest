@@ -1,0 +1,94 @@
+name: KeyNest CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+      rabbitmq:
+        image: rabbitmq:4.3.4-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: keynest
+          RABBITMQ_DEFAULT_PASS: keynest
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 8s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      MONGODB_URI: mongodb://localhost:27017/keynest?replicaSet=rs0&directConnection=true
+      REDIS_URL: redis://localhost:6379
+      RABBITMQ_URL: amqp://keynest:keynest@localhost:5672
+      WEB_ORIGINS: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name keynest-mongo -p 27017:27017 mongo:8.0.29 mongod --replSet rs0 --bind_ip_all
+          for attempt in $(seq 1 30); do
+            if docker exec keynest-mongo mongosh --quiet --eval "db.adminCommand('ping')"; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec keynest-mongo mongosh --quiet --eval 'rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })'
+          for attempt in $(seq 1 30); do
+            if docker exec keynest-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs keynest-mongo
+          exit 1
+      - run: npm audit --omit=dev
+      - run: npm run format:check
+      - run: npm run lint -- --skip-nx-cache
+      - run: npm run test:api
+      - run: npm run build -- --skip-nx-cache
+      - run: npm run db:setup
+      - name: Start API and worker
+        env:
+          NODE_ENV: production
+        run: |
+          node dist/apps/api/main.js > /tmp/keynest-api.log 2>&1 &
+          node dist/apps/worker/main.js > /tmp/keynest-worker.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:3333/api/health/ready; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/keynest-api.log
+          exit 1
+      - run: npm run test:e2e
+      - name: Print runtime logs on failure
+        if: failure()
+        run: |
+          cat /tmp/keynest-api.log || true
+          cat /tmp/keynest-worker.log || true

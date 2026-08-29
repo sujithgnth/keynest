@@ -1,135 +1,170 @@
-# Database Design Notes
+# MongoDB Data Design
 
-Last updated: June 29, 2026
+Last updated: August 30, 2026
 
-## Current Goal
+Each bounded context owns its executable collection names, TypeScript document
+models, and indexes under
+`apps/api/src/app/domains/<context>/infrastructure/mongo`. The platform-level
+`mongo-schema.ts` coordinates the three idempotent schema installers through
+`npm run db:setup`.
 
-Design the database for KeyNest, a password manager with client-side encrypted vault data.
+MongoDB is the first durable source of truth. Redis accelerates session reads
+and rate limits; RabbitMQ transports confirmed outbox events. See ADR 004 for
+the database decision, ADR 005 for the metadata boundary, and
+`postgresql-comparison.md` for the later SQL learning exercise.
 
-The database should support:
+## Domain entities before persistence
 
-- User accounts
-- Vault metadata
-- Encrypted credential storage
-- Sessions and refresh token rotation
-- Audit logging
-- Optional folders/tags later
+The framework-neutral entities are split by owner under each bounded context's
+`domain` directory: identity owns `User` and `Session`, vault owns `Vault` and
+`CredentialItem`, and audit owns `AuditLog` and `OutboxEvent`. They use public
+`id` fields and `Date` values; each context's Mongo adapter maps `id` to the
+document `_id`.
 
-## Core Security Principle
+| Entity           | Responsibility                                  | Important invariants                                                |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| `User`           | Account identity and authentication hash        | normalized email unique; raw password never stored                  |
+| `Vault`          | One wrapped data-encryption key per user        | owner unique; key/KDF formats versioned; revision positive          |
+| `CredentialItem` | Independently versioned encrypted item envelope | UUID bound into AAD; belongs to one vault; soft-deleted once        |
+| `Session`        | Durable opaque-cookie validation and revocation | only token hashes stored; expiry checked in queries and TTL cleanup |
+| `AuditLog`       | Append-only security event                      | fixed action/target/outcome shape; allow-listed metadata only       |
 
-The database must never store plaintext credential data.
+`OutboxEvent` is an infrastructure entity paired atomically with each audit log.
 
-Sensitive fields such as username, password, notes, and possibly title should be encrypted in the browser before being sent to the backend.
+## Field treatment policy
 
-## Current Field Policy
+Labels:
 
-### User
+- **PLAINTEXT:** queryable operational metadata;
+- **ENCRYPTED:** AES-256-GCM envelope produced in the browser;
+- **HASHED:** one-way verifier used by the server;
+- **NOT STORED:** forbidden from durable or cache storage.
 
-- `name`: plaintext
-- `email`: plaintext
-- `emailNormalized`: plaintext, unique index
-- `passwordHash`: hashed
-- `createdAt`, `updatedAt`: plaintext
+| Entity         | Field group                                                                           | Treatment               | Reason                                                     |
+| -------------- | ------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------- |
+| User           | `id`, `name`, `email`, `emailNormalized`, status, timestamps                          | PLAINTEXT               | account lookup and operation                               |
+| User           | `passwordHash`                                                                        | HASHED with Argon2id    | authentication without password recovery                   |
+| Vault          | owner ID, versions, KDF parameters/salt, revision, timestamps                         | PLAINTEXT               | ownership, compatibility, concurrency                      |
+| Vault          | wrapped key, wrap nonce                                                               | ENCRYPTED ENVELOPE DATA | server stores but cannot unwrap without master-derived key |
+| CredentialItem | IDs, item type, envelope version, nonce, revision, timestamps, deletion state         | PLAINTEXT               | ownership, sync, validation, optimistic concurrency        |
+| CredentialItem | title, username, password, full URL, notes, categories/tags, favourite, custom fields | ENCRYPTED               | these fields reveal a user's account inventory and secrets |
+| Session        | user ID, expiry/revocation/use timestamps                                             | PLAINTEXT               | validation, listing, revocation, cleanup                   |
+| Session        | session and CSRF values                                                               | HASHED with SHA-256     | high-entropy bearer values need comparison, not recovery   |
+| AuditLog       | actor/action/target/outcome/time and approved scalar metadata                         | PLAINTEXT               | investigation and delivery                                 |
+| All            | master password, derived/unwrapped keys, raw session/CSRF tokens                      | NOT STORED              | crossing this boundary breaks the security model           |
 
-Do not store raw passwords, master passwords, reset tokens in plaintext, or vault encryption keys.
+`ciphertext`, `wrappedKey`, and nonces are not secrets in the same sense as
+plaintext, but they are sensitive cryptographic material and must not be logged
+or copied into audit metadata.
 
-### Vault
+## Query and UX trade-offs
 
-- `userId`: plaintext
-- `name`: plaintext for MVP, possibly encrypted later
-- `kdfAlgorithm`, `kdfParams`, `encryptionVersion`: plaintext
-- `createdAt`, `updatedAt`: plaintext
+| Capability         | Supported server-side                                    | Consequence of the privacy boundary                                                                                    |
+| ------------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Search             | IDs and operational metadata only                        | title, username, URL, and notes search after browser decryption                                                        |
+| Category filtering | coarse `itemType` only                                   | user categories/tags require local filtering                                                                           |
+| Sorting            | `updatedAt` plus `_id` sync order                        | display sort by title/domain/category/favourite is local                                                               |
+| Pagination         | stable ciphertext cursor direction on `(updatedAt, _id)` | complete encrypted-field results may require decrypting multiple pages; current API returns at most 1,000 active items |
+| Audit              | actor/action/target/outcome/time                         | useful but leaks activity timing and resource identifiers; secrets and arbitrary request metadata are forbidden        |
 
-Encryption settings are not secret. They help the client know how to derive or use keys. The backend must not store key material that can decrypt vault data.
+Deterministic encryption, blind indexes, and searchable encryption are deferred:
+they introduce equality/frequency leakage and key-rotation complexity that the
+current scale does not justify.
 
-### CredentialItem
+## Collection boundaries
 
-- `userId`: plaintext
-- `vaultId`: plaintext
-- `title`: plaintext for MVP search, but this leaks account existence
-- `domain`: plaintext if domain filtering is needed
-- `url`: prefer encrypted full URL; avoid plaintext query strings
-- `username`: encrypted by default
-- `category`: plaintext only if category filtering is part of MVP
-- `encryptedPayload`: encrypted
-- `encryptionVersion`: plaintext
-- `createdAt`, `updatedAt`, optional `deletedAt`: plaintext
+### `users`
 
-The encrypted payload should contain passwords, notes, recovery codes, secret questions, usernames unless deliberately exposed, and full URLs if full URLs are sensitive.
+One small account document. Unique index:
 
-### Session
+```text
+{ emailNormalized: 1 } unique
+```
 
-- `userId`: plaintext
-- `refreshTokenHash`: hashed
-- `expiresAt`, `revokedAt`, `createdAt`, optional `lastUsedAt`: plaintext
-- `ipHash`: optional hashed
-- `userAgent`: optional plaintext, with privacy caution
+### `vaults`
 
-`userId` should remain plaintext because the backend must query and revoke sessions by user. Refresh tokens should be hashed, not encrypted, because the server only needs to verify a presented token.
+One document per user containing the KDF and wrapped-key envelope. Credentials
+are references, not embedded, so the vault cannot become an unbounded hot
+document. Unique index:
 
-### AuditLog
+```text
+{ ownerUserId: 1 } unique
+```
 
-- `userId`: plaintext
-- `action`: plaintext
-- `resourceType`: plaintext
-- `resourceId`: plaintext
-- `metadata`: plaintext but strictly allowlisted per action
-- `createdAt`: plaintext
+### `credential_items`
 
-Audit logs must never include passwords, tokens, encryption keys, plaintext credential values, full request bodies, or encrypted payloads.
+One opaque credential envelope per document. `vaultId` is the only ownership
+reference; the API first resolves the authenticated user's vault and scopes
+every item operation to that ID.
 
-## Initial Index Plan
+```text
+{ vaultId: 1, updatedAt: -1, _id: -1 }
+```
 
-Users:
+The active-item predicate is evaluated after the indexed vault/sort scan.
+MongoDB does not support an `$exists: false` predicate in a partial index, and
+using a different partial predicate would not match the stored/query shape.
 
-- unique `{ emailNormalized: 1 }`
+The design intentionally avoids duplicating `userId` on each item. Duplicating
+it would simplify one filter but create a second ownership fact that can drift.
 
-Vaults:
+### `sessions`
 
-- `{ userId: 1 }`
+Sessions are independent documents because they grow, expire, and revoke
+independently from the user. Indexes:
 
-Credential items:
+```text
+{ tokenHash: 1 } unique
+{ userId: 1, revokedAt: 1, expiresAt: -1 }
+{ expiresAt: 1 } TTL, expireAfterSeconds: 0
+```
 
-- `{ userId: 1, vaultId: 1, updatedAt: -1 }`
-- `{ userId: 1, title: 1 }` only if server-side title search is kept
-- `{ userId: 1, category: 1, updatedAt: -1 }` only if category filtering is kept
+TTL deletion is asynchronous, so authentication queries always check
+`expiresAt` and revocation explicitly.
 
-Sessions:
+### `audit_logs`
 
-- `{ userId: 1, revokedAt: 1 }`
-- unique `{ refreshTokenHash: 1 }`
-- TTL `{ expiresAt: 1 }`
+Append-only documents, separate from the user to avoid unbounded growth and to
+support time-ordered access.
 
-Audit logs:
+```text
+{ actorUserId: 1, occurredAt: -1, _id: -1 }
+{ action: 1, occurredAt: -1 }
+```
 
-- `{ userId: 1, createdAt: -1 }`
-- optional `{ action: 1, createdAt: -1 }`
-- optional TTL `{ createdAt: 1 }`
+Audit metadata is a typed scalar map, not a request-body dump. The service also
+rejects sensitive property names before persistence.
 
-Avoid speculative indexes until the MVP query patterns are clear.
+### `outbox_events`
 
-## Review Checklist
+Infrastructure collection written in the same transaction as `audit_logs`.
+The publisher atomically claims one pending event with a 30-second lease,
+publishes through a RabbitMQ confirm channel, then marks it published. A crash
+after broker confirmation can still duplicate delivery, so consumers use the
+stable event `_id` for idempotency.
 
-When reviewing the MongoDB/Mongoose schema, check:
+## Naming and reference rules
 
-- Are sensitive fields stored only as encrypted blobs?
-- Are sessions modeled properly?
-- Are refresh tokens stored as hashes, not plaintext?
-- Are audit logs free from sensitive data?
-- Are user-owned resources scoped by `userId`?
-- Are useful indexes added?
-- Is soft delete needed for credentials?
-- Is the schema simple enough for MVP?
-- Is anything overengineered?
+- collection names use plural `snake_case`;
+- document fields use `camelCase` to avoid repetitive application mapping;
+- `_id` values are UUID strings because they are public IDs and part of AAD;
+- references are named `<entity>Id` and remain plaintext;
+- no MongoDB `ObjectId` is exposed in API contracts;
+- no automatic population hides ownership queries.
 
-## Open Questions
+## Security and consistency review
 
-- Should credential titles be encrypted or searchable metadata?
-- Should folders/tags be MVP or Version 2?
-- Should deleted credentials be soft deleted?
-- Should audit log metadata be JSON?
-- Should session IP and user agent be stored?
-
-## Current Learning Note
-
-Detailed Q&A and challenged assumptions are stored in `docs/learning-notes/database-model-q-and-a.md`.
+- MongoDB has no foreign keys. Account-deletion code must delete dependent
+  sessions, items, vault, and audit/outbox data deliberately and be retryable.
+- A single-node replica set is acceptable only for local development and CI; it
+  provides transaction semantics, not production availability.
+- Unique indexes provide duplicate-email, one-vault-per-user, and token-hash
+  invariants. DTOs validate formats and sizes before writes.
+- Optimistic updates include the expected revision. A mismatch returns conflict
+  rather than overwriting a newer ciphertext envelope.
+- Soft deletion keeps a sync tombstone direction, but permanent retention and
+  purge policy are not yet implemented.
+- Backups contain identity data, authentication/session hashes, audit metadata,
+  and encrypted vault material. They remain sensitive even without plaintext.
+- Database compromise still exposes item counts, item types, timestamps,
+  ciphertext sizes, and access patterns.

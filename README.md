@@ -1,162 +1,235 @@
 # KeyNest
 
-KeyNest is an educational full-stack password manager project built to demonstrate secure vault architecture, client-side encryption, full-stack TypeScript development, and production-style engineering practices.
+![Work in progress](https://img.shields.io/badge/status-work%20in%20progress-F59E0B)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=111111)
+![CSS](https://img.shields.io/badge/CSS-663399?logo=css&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
+![YAML](https://img.shields.io/badge/YAML-CB171E?logo=yaml&logoColor=white)
+![Dockerfile](https://img.shields.io/badge/Dockerfile-2496ED?logo=docker&logoColor=white)
+![Shell](https://img.shields.io/badge/Shell-4EAA25?logo=gnubash&logoColor=white)
+![Batchfile](https://img.shields.io/badge/Batchfile-0078D6?logo=windows&logoColor=white)
 
-## Goal
+KeyNest is a working, educational password-manager MVP built as an Nx
+TypeScript monorepo. It demonstrates browser-side vault encryption, durable
+session and audit storage, asynchronous security-event delivery, and a local
+observability stack.
 
-The goal of this project is to build an encrypted credential management platform where sensitive vault data is encrypted before it is stored on the server.
+## Project status
 
-The backend should never receive plaintext credentials, plaintext notes, the master password, or the vault encryption key.
+**Work in progress — last verified August 29, 2026.** The implemented vertical
+slice is suitable for architecture review, local testing, and demonstrations
+with synthetic data. It is not a hosted password-manager service, has no stable
+public-availability commitment, and must not be used for real credentials.
 
-## Core Engineering Topics
+A temporary HTTPS demo may be shared while the maintainer's local Docker stack
+and tunnel are running. Its address can change without notice. The
+[operations runbook](docs/operations-runbook.md#temporary-public-demo-cloudflare-quick-tunnel)
+documents that demo path and its limitations.
 
-- Client-side encryption
-- Authentication and session management
-- Refresh token rotation
-- Secure vault unlock flow
-- MongoDB data modeling
-- SQL comparison later
-- Audit logging
-- Rate limiting
-- Frontend state separation
-- Docker-based local development
-- CI/CD
-- Architecture Decision Records
-- Threat modeling
+## Languages and platform
 
-## Tech Stack
+The repository contains TypeScript/TSX, JavaScript configuration, CSS, YAML
+infrastructure/CI configuration, a Dockerfile, and Shell and Batchfile
+launchers. JSON and Markdown are also used for configuration and documentation,
+but they are data and prose rather than application languages.
 
-### Frontend
+![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?logo=nestjs&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?logo=rabbitmq&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?logo=grafana&logoColor=white)
 
-- Next.js
-- React
-- TypeScript
-- Tailwind CSS
-- React Hook Form
-- Zod
-- TanStack Query
-- Zustand
+> KeyNest has not undergone an independent security audit. Use synthetic test
+> credentials only—do not store real passwords in it. Report suspected
+> vulnerabilities through the [security policy](SECURITY.md), not a public
+> issue.
 
-### Backend
+## What works
 
-- NestJS
-- TypeScript
-- MongoDB
-- SQL / PostgreSQL comparison later
-- Argon2
-- JWT access tokens
-- Refresh token rotation
-- OpenAPI / Swagger
+- Register, sign in, sign out, list sessions, and revoke sessions
+- Argon2id account-password hashing and opaque HttpOnly sessions
+- Redis-backed login/register rate limits and session-cache acceleration
+- CSRF protection on state-changing authenticated routes
+- Restrictive response security headers on both the Next.js web app and API
+- Create and unlock a browser-encrypted vault
+- Add, edit, delete, search, reveal, copy, and generate credentials
+- Experimental WebMCP tools for aggregate vault status and in-memory locking
+- AES-256-GCM authenticated encryption with per-envelope nonces and AAD
+- MongoDB persistence for users, sessions, encrypted vaults, audit records, and
+  a transactional outbox
+- Domain-oriented NestJS API split into identity, vault, and audit bounded
+  contexts with enforced dependency boundaries
+- RabbitMQ publisher confirms, durable queues, manual worker acknowledgements,
+  bounded prefetch, and a dead-letter queue
+- Structured redacted Pino logs shipped through Promtail to Loki
+- Prometheus request/runtime/outbox metrics and a provisioned Grafana dashboard
+- Docker Compose for the complete local system
 
-### Security
+## Runtime architecture
 
-- Web Crypto API
-- AES-GCM
-- Key derivation
-- TOTP 2FA
-- Secure HttpOnly cookies
-- Rate limiting
-- Audit logging
-
-### DevOps
-
-- Docker
-- Docker Compose
-- GitHub Actions
-
-## Workspace Scripts
-
-- `npm run dev:web` - start the Next.js app
-- `npm run dev:api` - start the NestJS API
-- `npm run build` - build all buildable projects
-- `npm run lint` - lint all projects
-- `npm run format` - format the workspace with Prettier
-- `npm run format:check` - check Prettier formatting
-- `npm run graph` - inspect the Nx project graph
-
-## Current Progress
-
-As of June 16, 2026:
-
-- Nx monorepo scaffold is in place.
-- `apps/web` contains the initial Next.js app shell.
-- `apps/api` contains the initial NestJS app shell.
-- Shared libraries are scaffolded under `libs/types`, `libs/validation`, `libs/crypto`, and `libs/ui`.
-- TypeScript strict mode, ESLint, and Prettier are configured.
-- Backend module skeletons are wired for auth, users, vault, credentials, sessions, and audit logs.
-- Controllers, services, and DTO placeholder files exist for the backend modules.
-- Project direction is updated for a 3-month interview-focused phase and long-term architecture growth through 2028.
-- Auth, database model, encryption, session rotation, and audit-log persistence are not implemented yet.
-
-## Learning Approach
-
-This project is being built as a mentorship-driven interview portfolio project, not just a code-generation exercise. For the next 3 months, the priority is Senior Frontend Engineer / Fullstack TypeScript interview readiness. The longer-term path is hands-on software architecture growth through 2028.
-
-- Working rules: [docs/mentorship-guidelines.md](docs/mentorship-guidelines.md)
-- Combined progress source: [docs/combined-progress.md](docs/combined-progress.md)
-- Learning progress source: [docs/learning-progress.md](docs/learning-progress.md)
-- Two-layer roadmap: [docs/project-direction.md](docs/project-direction.md)
-- 3-month timeline: [docs/3-month-timeline.md](docs/3-month-timeline.md)
-- Learning notes: [docs/learning-notes](docs/learning-notes)
-
-## Next TODO Steps
-
-Before writing the database model, clarify the domain and security boundaries:
-
-1. Define the core domain entities: `User`, `Vault`, `CredentialItem`, `Session`, and `AuditLog`.
-2. Decide which fields are encrypted client-side and which fields remain plaintext metadata.
-3. Document the encrypted/plaintext tradeoff for search, category filtering, sorting, pagination, and audit logs.
-4. Use MongoDB initially, then document the SQL/PostgreSQL comparison later as an architecture learning exercise.
-5. Draft the first MongoDB collection model only after the entity model and metadata policy are clear.
-6. Review the database model for document boundaries, references, indexes, naming, session modeling, audit-log design, and security concerns.
-7. Write an ADR for the database choice and another ADR for the encrypted metadata boundary.
-8. Add Docker Compose for the selected database after the schema direction is stable.
-9. Add focused tests for the first backend persistence flow once database persistence is introduced.
-
-Current learning question:
-
-```txt
-How should User, Vault, CredentialItem, Session, and AuditLog be modeled,
-and which fields must be encrypted versus queryable as plaintext metadata?
+```mermaid
+flowchart LR
+  B["Next.js browser vault"] -->|"account auth + encrypted envelopes"| A["NestJS API"]
+  B -->|"derive, wrap, encrypt, decrypt"| C["Web Crypto API"]
+  A --> P[(MongoDB replica set)]
+  A --> R[(Redis)]
+  A -->|"transactional outbox"| Q[(RabbitMQ)]
+  Q --> W["Security event worker"]
+  A --> M["Prometheus"]
+  A --> L["Structured log file"]
+  W --> L
+  L --> T["Promtail → Loki"]
+  M --> G["Grafana"]
+  T --> G
 ```
 
-## Important Disclaimer
+The account password is sent over the authenticated HTTP channel and hashed
+with Argon2id. The separate vault master password never leaves the browser. It
+derives a wrapping key with PBKDF2-SHA256; the API receives only the encrypted
+vault key and encrypted item envelopes.
 
-This project is an educational portfolio project. It has not undergone a professional security audit and should not be used to store real passwords.
+### Backend domain layout
 
-## Planned Features
+The API is a modular monolith organized by business capability rather than by
+global controller/service/repository folders:
 
-### MVP
+```text
+apps/api/src/app/
+├── domains/
+│   ├── identity/   # users, authentication, sessions, and CSRF
+│   ├── vault/      # wrapped vault keys and encrypted credential items
+│   └── audit/      # audit history and transactional outbox
+└── platform/       # MongoDB connection, RabbitMQ, health, HTTP, and telemetry
+```
 
-- User registration
-- User login/logout
-- Master password setup
-- Vault bootstrap flow
-- Client-side encryption
-- Add/edit/delete encrypted credentials
-- Search credentials after vault unlock
-- Password generator
-- Auto-lock vault
-- Docker Compose setup
-- Basic README and architecture documentation
+Each bounded context owns `domain`, `application`, `infrastructure`, and
+`presentation` layers plus a NestJS module and `public-api.ts`. Domain entities
+remain framework-neutral, application services do not accept HTTP DTO classes,
+and cross-domain imports must use the target context's public API. An
+architecture test enforces these rules.
 
-### Senior Upgrade
+## Run the complete system
 
-- Refresh token rotation
-- Session management
-- Audit logs
-- Two-factor authentication
-- Password health dashboard
-- E2E tests
-- CI pipeline
-- Architecture Decision Records
+Requirements: Docker Desktop and a recent Node.js/npm installation.
 
-### Architect Upgrade
+```bash
+docker compose up -d --build
+docker compose ps
+npm run test:e2e
+```
 
-- Threat model
-- Encryption design document
-- Auth design document
-- Database design document
-- Recovery tradeoff explanation
-- Deployment diagram
-- Observability notes
+The MongoDB setup container creates collections and indexes before the API, and
+the web container starts only after API readiness succeeds. The first image
+build can take a few minutes.
+
+| Service             | URL / address                            | Local credentials  |
+| ------------------- | ---------------------------------------- | ------------------ |
+| KeyNest             | http://localhost:3000                    | create an account  |
+| API readiness       | http://localhost:3333/api/health/ready   | none               |
+| API metrics         | http://localhost:3333/api/metrics        | none               |
+| Grafana dashboard   | http://localhost:3001/d/keynest-overview | admin / keynest    |
+| RabbitMQ management | http://localhost:15673                   | keynest / keynest  |
+| Prometheus          | http://localhost:9090                    | none               |
+| Loki                | http://localhost:3100/ready              | none               |
+| MongoDB             | localhost:27018, database `keynest`      | local network only |
+
+These credentials and open management ports are intentionally local-only
+defaults. Replace them and terminate TLS at a reverse proxy before any remote
+deployment.
+
+Stop without deleting durable volumes:
+
+```bash
+docker compose down
+```
+
+See the [operations runbook](docs/operations-runbook.md) for logs, queues,
+health checks, failure behavior, and backups.
+
+## Development and verification
+
+```bash
+npm install
+npm run infra:up
+npm run db:setup
+npm run dev:api
+npm run dev:web
+```
+
+Useful checks:
+
+```bash
+npm run test:api
+npm run test:e2e       # expects the complete stack to be running
+npm run lint
+npm run build
+npm run verify
+```
+
+`npm run test:e2e` creates synthetic data, performs a real encrypted round
+trip, verifies that its plaintext sentinel is absent from server-side storage,
+waits for the RabbitMQ outbox to publish, and removes the test account.
+
+## Repository security automation
+
+The public GitHub repository has Dependabot vulnerability alerts and security
+updates, secret scanning with push protection, CodeQL default scanning for
+JavaScript/TypeScript, and private vulnerability reporting enabled. Weekly
+version-update checks cover both npm and GitHub Actions dependencies through
+`.github/dependabot.yml`.
+
+These controls help detect dependency, code, and credential-leak risks. They do
+not certify the application, prove the absence of vulnerabilities, or replace
+the runtime and security-boundary tests described above.
+
+## Security boundaries and trade-offs
+
+- The server stores vault KDF metadata, wrapped-key material, nonces,
+  ciphertext, item type, revisions, and timestamps. It does not receive
+  decrypted credential fields, the vault master password, or the unwrapped
+  vault key.
+- A non-extractable `CryptoKey` and decrypted items live in React memory only
+  while unlocked. The UI auto-locks after 15 minutes of inactivity.
+- Local search works after decryption. There is intentionally no server-side
+  plaintext search.
+- User-defined category filtering and display sorting also run locally. The
+  server can filter only coarse item type and order ciphertext for sync by
+  update time and ID; exposing title/domain/category indexes was rejected as a
+  metadata leak.
+- PBKDF2 was selected because it is available through native Web Crypto. It is
+  CPU-hard, not memory-hard; a future Argon2id browser migration must introduce
+  a new versioned envelope and migration path.
+- JavaScript cannot guarantee complete memory zeroization. XSS remains a
+  critical threat while the vault is unlocked.
+- There is deliberately no vault-password recovery. Losing it loses access to
+  the encrypted vault.
+- WebMCP is a progressive enhancement. Its reduced-state module exposes only
+  sign-in/lock state, unlocked item count, and a lock action; credential CRUD,
+  secret retrieval, password generation, authentication, and unlock are not
+  agent tools.
+- The outbox/RabbitMQ path provides at-least-once delivery. Consumers must use
+  the event ID for idempotency.
+
+Read [ADR 001](docs/adr/001-client-side-encryption.md),
+[ADR 002](docs/adr/002-runtime-and-observability.md),
+[ADR 003](docs/adr/003-webmcp-agent-boundary.md),
+[ADR 004](docs/adr/004-mongodb-first-persistence.md),
+[ADR 005](docs/adr/005-encrypted-metadata-boundary.md),
+[ADR 006](docs/adr/006-domain-oriented-api-boundaries.md), the
+[MongoDB/PostgreSQL comparison](docs/postgresql-comparison.md), the
+[threat model](docs/threat-model.md), and the
+[implementation status](docs/implementation-status.md) before describing the
+project in an interview.
+
+## Intentionally not included yet
+
+This is a coherent personal-vault MVP, not the entire longer-term platform
+roadmap. TOTP/2FA, account or vault recovery, family sharing, an Angular admin
+application, enterprise RBAC/policy, passkeys, browser extensions, a production
+deployment, and an independent security assessment remain future work.
+
+The optional AI privacy boundary is test-covered, but no remote model adapter
+is connected. AI is not part of authentication, encryption, or vault access.
